@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>El Impostor — versión 412 (local)</title>
+<style>
+  :root{
+    --bg:#0f1724; --card:#0b1220; --accent:#6ee7b7; --muted:#94a3b8;
+    --glass: rgba(255,255,255,0.03);
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; min-height:100vh; background:
+    linear-gradient(180deg,#071226 0%, #071828 60%); color:#e6eef6;
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .app{
+    width:100%; max-width:920px; background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:14px; padding:18px; box-shadow: 0 10px 30px rgba(2,6,23,0.7);
+  }
+  header{display:flex; gap:12px; align-items:center; margin-bottom:12px}
+  h1{font-size:20px; margin:0}
+  p.lead{margin:0;color:var(--muted); font-size:13px}
+  .grid{display:grid; grid-template-columns: 1fr 360px; gap:14px}
+  @media (max-width:880px){ .grid{grid-template-columns:1fr} .right{order:2} }
+  .card{background:var(--card); padding:12px; border-radius:10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.02) }
+  label{display:block;font-size:13px;color:var(--muted); margin-bottom:6px}
+  input[type="number"], select, input[type="text"], textarea {
+    width:100%; padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);
+    background:transparent;color:inherit;font-size:14px;
+  }
+  .btn{display:inline-block;padding:10px 14px;border-radius:10px;background:var(--accent); color:#052022; font-weight:600; border:none; cursor:pointer}
+  .btn.ghost{background:transparent;color:var(--accent);border:1px solid rgba(110,231,183,0.12)}
+  .small{font-size:13px;padding:8px 10px}
+  .players-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .player-chip{padding:8px 10px;border-radius:12px;background:var(--glass);font-weight:600;font-size:14px}
+  .center{display:flex;align-items:center;justify-content:center}
+  .big-card{min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02)); padding:18px}
+  .role-text{font-size:28px;font-weight:800; margin:8px 0}
+  .meta{color:var(--muted);font-size:13px}
+  .vote-list{display:flex;flex-direction:column;gap:8px}
+  .vote-row{display:flex;align-items:center;justify-content:space-between;padding:8px;border-radius:8px;background:rgba(255,255,255,0.02)}
+  .hidden{display:none}
+  footer{margin-top:12px;color:var(--muted);font-size:13px;text-align:center}
+  .danger{background:#ff6b6b;color:#1b0b0b}
+  .success{background:#34d399;color:#072017}
+  .stage{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+  .notice{background:rgba(255,255,255,0.02);padding:10px;border-radius:8px;font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+  <div class="app" id="app">
+    <header>
+      <div style="flex:1">
+        <h1>El Impostor — versión 412 (local)</h1>
+        <p class="lead">Modo local / móvil — Pass & play. Más abajo explico cómo pasar a online.</p>
+      </div>
+      <div style="text-align:right">
+        <small class="meta">Diseño inicial • Responsive</small>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div>
+        <div class="card">
+          <label>Nombre de la sala (opcional)</label>
+          <input id="roomName" placeholder="ej: Partido de la tarde" />
+
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <div style="flex:1">
+              <label>Cantidad de jugadores</label>
+              <input id="playerCount" type="number" min="3" max="12" value="6" />
+            </div>
+            <div style="width:170px">
+              <label>Modo</label>
+              <select id="mode">
+                <option value="same">Misma carta (todos excepto impostor)</option>
+                <option value="unique">Jugador único (cada uno diferente)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="margin-top:10px">
+            <label>Lista de futbolistas (opcional)</label>
+            <textarea id="playersPool" rows="4" placeholder="Pon una lista separada por comas o una por línea. Si lo dejas vacío se usa la lista por defecto."></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button class="btn" id="setupBtn">Crear sala local</button>
+              <button class="btn ghost" id="shuffleBtn">Mezclar y reasignar</button>
+            </div>
+          </div>
+
+          <div style="margin-top:12px">
+            <label>Jugadores (nombres)</label>
+            <div style="display:flex;gap:8px">
+              <input id="newPlayerName" placeholder="Agregar nombre y presionar +"/>
+              <button class="btn small" id="addPlayerBtn">+</button>
+            </div>
+            <div class="players-list" id="playersList"></div>
+            <div style="margin-top:8px" class="notice">
+              Consejo: si vas a jugar en celular, que cada jugador toque "Ver mi carta" cuando sea su turno para ocultarlo al resto.
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <div class="stage">
+            <button class="btn" id="startRevealBtn">Iniciar pass-and-play</button>
+            <button class="btn ghost" id="startVotingBtn">Empezar votación</button>
+            <button class="btn ghost" id="resetBtn">Reiniciar sala</button>
+          </div>
+
+          <div style="margin-top:8px" id="statusBox" class="notice">
+            Estado: <span id="statusText">Sin sala creada</span>
+          </div>
+
+          <div style="margin-top:8px">
+            <label>Reglas rápidas</label>
+            <ul style="margin:6px 0 0 18px;color:var(--muted);font-size:13px">
+              <li>Ronda de pistas: cada jugador dice una pista relacionada con su carta.</li>
+              <li>Luego votan. Si eliminan al impostor: ganan los demás. Si eliminan inocente: gana el impostor.</li>
+              <li>En empate de votos se elimina aleatoriamente entre los más votados.</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="right">
+        <div class="card big-card center" id="revealArea">
+          <div id="revealContent">
+            <div class="meta" id="revealMeta">Aquí aparecerá la carta cuando toque a un jugador.</div>
+            <div class="role-text" id="roleText">—</div>
+            <div class="meta" id="secretInfo"></div>
+            <div style="margin-top:12px" id="revealControls">
+              <button class="btn" id="showMyCardBtn">Ver mi carta</button>
+              <button class="btn ghost hidden" id="hideCardBtn">Ocultar y pasar</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <label>Votación</label>
+          <div id="votePhase" class="hidden">
+            <div class="vote-list" id="voteList"></div>
+            <div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end">
+              <button class="btn" id="castVotesBtn">Finalizar votación</button>
+            </div>
+          </div>
+          <div id="voteResult" class="hidden" style="margin-top:10px"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <footer>
+      Hecho para probar. ¿Querés que lo suba a tu GitHub y lo convierta en una PWA/online? Puedo hacerlo.
+    </footer>
+  </div>
+
+<script>
+/* Juego: El Impostor — lógica local */
+(() => {
+  const defaultPool = [
+    "Lionel Messi","Cristiano Ronaldo","Neymar Jr","Kylian Mbappé","Luka Modrić",
+    "Sergio Ramos","Karim Benzema","Robert Lewandowski","Kevin De Bruyne","Mohamed Salah",
+    "Erling Haaland","Harry Kane","Paulo Dybala","Antoine Griezmann","Sadio Mané",
+    "Thiago Silva","Gianluigi Donnarumma","Marcelo","Raheem Sterling","Romelu Lukaku"
+  ];
+
+  // DOM
+  const playerCountEl = document.getElementById('playerCount');
+  const modeEl = document.getElementById('mode');
+  const playersPoolEl = document.getElementById('playersPool');
+  const setupBtn = document.getElementById('setupBtn');
+  const shuffleBtn = document.getElementById('shuffleBtn');
+  const playersListEl = document.getElementById('playersList');
+  const addPlayerBtn = document.getElementById('addPlayerBtn');
+  const newPlayerNameEl = document.getElementById('newPlayerName');
+  const startRevealBtn = document.getElementById('startRevealBtn');
+  const startVotingBtn = document.getElementById('startVotingBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const statusText = document.getElementById('statusText');
+
+  const revealArea = document.getElementById('revealArea');
+  const roleText = document.getElementById('roleText');
+  const revealMeta = document.getElementById('revealMeta');
+  const secretInfo = document.getElementById('secretInfo');
+  const showMyCardBtn = document.getElementById('showMyCardBtn');
+  const hideCardBtn = document.getElementById('hideCardBtn');
+
+  const votePhase = document.getElementById('votePhase');
+  const voteList = document.getElementById('voteList');
+  const castVotesBtn = document.getElementById('castVotesBtn');
+  const voteResult = document.getElementById('voteResult');
+
+  let state = {
+    players: [], // {id,name}
+    assignments: {}, // id -> {role: 'impostor'|'player', card: string}
+    currentRevealIndex: 0,
+    votes: {}, // id -> targetId
+    mode: 'same'
+  };
+
+  function uid() { return Math.random().toString(36).slice(2,9) }
+
+  // UI helpers
+  function renderPlayersList(){
+    playersListEl.innerHTML = '';
+    state.players.forEach(p => {
+      const chip = document.createElement('div');
+      chip.className = 'player-chip';
+      chip.textContent = p.name;
+      playersListEl.appendChild(chip);
+    });
+  }
+
+  function setStatus(text){ statusText.textContent = text }
+
+  function readPool(){
+    const raw = playersPoolEl.value.trim();
+    if(!raw) return defaultPool.slice();
+    // split by comma or newline
+    const parts = raw.split(/\r?\n|,/).map(s => s.trim()).filter(Boolean);
+    if(parts.length === 0) return defaultPool.slice();
+    return parts;
+  }
+
+  function shuffleArray(a){
+    for(let i=a.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [a[i],a[j]]=[a[j],a[i]];
+    }
+    return a;
+  }
+
+  // Setup
+  function createRoom(){
+    const count = parseInt(playerCountEl.value) || 6;
+    const mode = modeEl.value;
+    state.mode = mode;
+    // fill players if user didn't input manual names
+    if(state.players.length < count){
+      // create placeholder names
+      for(let i=state.players.length;i<count;i++){
+        state.players.push({id: uid(), name: `Jugador ${i+1}`});
+      }
+    } else if(state.players.length > count) {
+      state.players = state.players.slice(0,count);
+    }
+    renderPlayersList();
+
+    assignRoles();
+    setStatus(`Sala creada — ${state.players.length} jugadores — modo: ${mode === 'same' ? 'Misma carta' : 'Jugador único'}`);
+  }
+
+  function assignRoles(){
+    const pool = shuffleArray(readPool());
+    const players = [...state.players];
+    shuffleArray(players);
+    // choose impostor random index
+    const impostorIndex = Math.floor(Math.random()*players.length);
+    state.assignments = {};
+
+    if(state.mode === 'same'){
+      // pick one card from pool
+      const card = pool[0] || 'Jugador famoso';
+      players.forEach((p, idx) => {
+        if(idx === impostorIndex){
+          state.assignments[p.id] = {role:'impostor', card: null};
+        } else {
+          state.assignments[p.id] = {role:'player', card: card};
+        }
+      });
+    } else {
+      // unique: assign different cards to each non-impostor; pick impostor as null
+      // ensure we have enough cards
+      const needed = players.length - 1;
+      const cards = (pool.length >= needed) ? pool.slice(0,needed) : [...pool, ...Array(needed-pool.length).fill('Jugador Anónimo')];
+      let cidx = 0;
+      players.forEach((p, idx) => {
+        if(idx === impostorIndex){
+          state.assignments[p.id] = {role:'impostor', card: null};
+        } else {
+          state.assignments[p.id] = {role:'player', card: cards[cidx++]};
+        }
+      });
+    }
+
+    // reset reveal index and votes
+    state.currentRevealIndex = 0;
+    state.votes = {};
+    votePhase.classList.add('hidden');
+    voteResult.classList.add('hidden');
+  }
+
+  // add manual player
+  addPlayerBtn.addEventListener('click', ()=>{
+    const name = newPlayerNameEl.value.trim();
+    if(!name) return;
+    state.players.push({id: uid(), name});
+    newPlayerNameEl.value='';
+    renderPlayersList();
+  });
+
+  // setup buttons
+  setupBtn.addEventListener('click', ()=>{
+    createRoom();
+  });
+
+  shuffleBtn.addEventListener('click', ()=>{
+    if(state.players.length===0){ alert('No hay jugadores.'); return; }
+    assignRoles();
+    setStatus('Roles reasignados.');
+  });
+
+  resetBtn.addEventListener('click', ()=>{
+    if(!confirm('Reiniciar sala y borrar jugadores?')) return;
+    state = {players: [], assignments:{}, currentRevealIndex:0, votes:{}, mode:'same'};
+    playersListEl.innerHTML=''; setStatus('Sin sala creada');
+    roleText.textContent='—'; revealMeta.textContent = 'Aquí aparecerá la carta cuando toque a un jugador.'; secretInfo.textContent='';
+    votePhase.classList.add('hidden'); voteResult.classList.add('hidden');
+  });
+
+  // Pass-and-play reveal
+  startRevealBtn.addEventListener('click', ()=>{
+    if(state.players.length < 3){ alert('Se necesitan al menos 3 jugadores.'); return; }
+    if(!state.assignments || Object.keys(state.assignments).length===0){
+      assignRoles();
+    }
+    state.currentRevealIndex = 0;
+    revealMeta.textContent = `Turno: ${state.players[state.currentRevealIndex].name}`;
+    roleText.textContent = '—';
+    secretInfo.textContent = '';
+    showMyCardBtn.classList.remove('hidden');
+    hideCardBtn.classList.add('hidden');
+    setStatus('Pass-and-play: mostrando cartas en privado.');
+  });
+
+  showMyCardBtn.addEventListener('click', ()=>{
+    const p = state.players[state.currentRevealIndex];
+    const ass = state.assignments[p.id];
+    revealMeta.textContent = `${p.name} — tu carta`;
+    if(ass.role === 'impostor'){
+      roleText.textContent = 'IMPOSTOR';
+      secretInfo.textContent = 'Intenta fingir o dar pistas creíbles.';
+    } else {
+      roleText.textContent = ass.card || 'Jugador famoso';
+      secretInfo.textContent = 'Da una pista relacionada con ese jugador.';
+    }
+    showMyCardBtn.classList.add('hidden');
+    hideCardBtn.classList.remove('hidden');
+  });
+
+  hideCardBtn.addEventListener('click', ()=>{
+    // avanzar
+    state.currentRevealIndex++;
+    if(state.currentRevealIndex >= state.players.length){
+      revealMeta.textContent = 'Revelación completada';
+      roleText.textContent = '—';
+      secretInfo.textContent = 'Cuando terminen las pistas, inicien la votación.';
+      hideCardBtn.classList.add('hidden');
+      showMyCardBtn.classList.remove('hidden');
+      setStatus('Revelación completada. Preparados para votación.');
+    } else {
+      revealMeta.textContent = `Turno: ${state.players[state.currentRevealIndex].name}`;
+      roleText.textContent = '—';
+      secretInfo.textContent = '';
+      hideCardBtn.classList.add('hidden');
+      showMyCardBtn.classList.remove('hidden');
+    }
+  });
+
+  // Voting
+  startVotingBtn.addEventListener('click', ()=>{
+    if(!state.assignments || Object.keys(state.assignments).length===0){
+      alert('Primero create la sala (Crear sala local).');
+      return;
+    }
+    // show vote UI
+    votePhase.classList.remove('hidden');
+    voteList.innerHTML = '';
+    state.votes = {};
+    state.players.forEach(p=>{
+      const row = document.createElement('div');
+      row.className = 'vote-row';
+      const left = document.createElement('div');
+      left.textContent = p.name;
+      const select = document.createElement('select');
+      select.style.minWidth='160px';
+      const emptyOpt = document.createElement('option');
+      emptyOpt.value=''; emptyOpt.textContent='Sin votar';
+      select.appendChild(emptyOpt);
+      state.players.forEach(q => {
+        const opt = document.createElement('option'); opt.value=q.id; opt.textContent=`Votar: ${q.name}`;
+        select.appendChild(opt);
+      });
+      select.addEventListener('change', e=>{
+        state.votes[p.id] = e.target.value || null;
+      });
+      row.appendChild(left);
+      row.appendChild(select);
+      voteList.appendChild(row);
+    });
+    setStatus('Votación abierta.');
+  });
+
+  castVotesBtn.addEventListener('click', ()=>{
+    // count votes
+    const tally = {};
+    Object.values(state.votes).forEach(v=>{
+      if(!v) return;
+      tally[v] = (tally[v]||0) + 1;
+    });
+    // compute max
+    let max = 0;
+    for(const k in tally) if(tally[k] > max) max = tally[k];
+    if(max === 0){
+      alert('No se emitieron votos.');
+      return;
+    }
+    // candidates with max
+    const cands = Object.keys(tally).filter(k=>tally[k] === max);
+    let eliminatedId;
+    if(cands.length === 1){
+      eliminatedId = cands[0];
+    } else {
+      // tie: pick random among tied
+      eliminatedId = cands[Math.floor(Math.random()*cands.length)];
+    }
+    // find eliminated player
+    const eliminated = state.players.find(p=>p.id===eliminatedId);
+    const assignment = state.assignments[eliminatedId];
+    let resultHtml = `<div class="notice" style="padding:12px">Se eliminó a <strong>${eliminated.name}</strong>.<br/>`;
+    if(assignment && assignment.role === 'impostor'){
+      resultHtml += `<div style="margin-top:8px" class="success" style="padding:8px;border-radius:8px">Era el <strong>IMPOSTOR</strong>. ¡Los demás ganan!</div>`;
+    } else {
+      resultHtml += `<div style="margin-top:8px" class="danger" style="padding:8px;border-radius:8px">No era impostor. Ganó el <strong>IMPOSTOR</strong>.</div>`;
+    }
+    // show eliminated card info if not impostor
+    if(assignment && assignment.card){
+      resultHtml += `<div style="margin-top:8px" class="meta">Carta eliminada: ${assignment.card}</div>`;
+    }
+    resultHtml += `</div>`;
+    voteResult.classList.remove('hidden');
+    voteResult.innerHTML = resultHtml;
+    votePhase.classList.add('hidden');
+    setStatus('Votación finalizada.');
+  });
+
+  // init small demo players
+  (function initDemo(){
+    // load 6 placeholders
+    for(let i=1;i<=6;i++) state.players.push({id: uid(), name: `Jugador ${i}`});
+    renderPlayersList();
+  })();
+
+})();
+</script>
+</body>
+</html>
